@@ -115,7 +115,7 @@ export default function ContactPage() {
                                             <div className="text-3xl">📞</div>
                                             <div>
                                                 <h3 className="font-bold text-gray-900 mb-1">Phone</h3>
-                                                <p className="text-gray-600">(904) 555-0100</p>
+                                                <p className="text-gray-600">(904) 582-6118</p>
                                                 <p className="text-sm text-gray-500 mt-1">Available 24/7</p>
                                             </div>
                                         </div>
@@ -126,13 +126,13 @@ export default function ContactPage() {
                                             <div className="text-3xl">📧</div>
                                             <div>
                                                 <h3 className="font-bold text-gray-900 mb-1">Email</h3>
-                                                <p className="text-gray-600">info@palmvalleytransportation.com</p>
+                                                <p className="text-gray-600">palmvalleytransportation@gmail.com</p>
                                                 <p className="text-sm text-gray-500 mt-1">We respond within 24 hours</p>
                                             </div>
                                         </div>
                                     </Card>
 
-                                    <Card padding="lg">
+                                    {/* <Card padding="lg">
                                         <div className="flex items-start gap-4">
                                             <div className="text-3xl">📍</div>
                                             <div>
@@ -144,7 +144,7 @@ export default function ContactPage() {
                                                 <p className="text-sm text-gray-500 mt-1">By appointment only</p>
                                             </div>
                                         </div>
-                                    </Card>
+                                    </Card> */}
 
                                     <Card padding="lg">
                                         <div className="flex items-start gap-4">
@@ -165,7 +165,7 @@ export default function ContactPage() {
                                     <h3 className="font-bold text-danger-700 mb-2">Emergency Support</h3>
                                     <p className="text-danger-600 text-sm">
                                         For urgent assistance during your ride, call our 24/7 emergency line:
-                                        <strong> (904) 555-0911</strong>
+                                        <strong> (904) 582-6118</strong>
                                     </p>
                                 </div>
                             </div>

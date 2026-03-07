@@ -55,7 +55,7 @@ export default function Footer() {
                                 { href: '/booking', label: 'Book a Ride' },
                                 { href: '/about', label: 'About Us' },
                                 { href: '/fleet', label: 'Our Fleet' },
-                                { href: '/service-areas', label: 'Service Areas' },
+                                // { href: '/service-areas', label: 'Service Areas' },
                                 { href: '/contact', label: 'Contact' },
                             ].map((link) => (
                                 <li key={link.href}>
