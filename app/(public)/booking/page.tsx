@@ -403,7 +403,7 @@ function BookingPageContent() {
                                     placeholder="e.g., AA1234"
                                     error={errors.flightNumber}
                                 />
-                                <label className="flex items-center gap-3 cursor-pointer">
+                                {/* <label className="flex items-center gap-3 cursor-pointer">
                                     <input
                                         type="checkbox"
                                         name="meetAndGreet"
@@ -414,7 +414,7 @@ function BookingPageContent() {
                                     <span className="text-sm font-medium text-gray-700">
                                         Add Meet & Greet Service (+$20)
                                     </span>
-                                </label>
+                                </label> */}
                             </div>
                         )}
 
@@ -439,7 +439,7 @@ function BookingPageContent() {
                                         <p className="text-xs text-gray-500">Required for children under 8</p>
                                     </div>
                                 </label>
-                                <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                                {/* <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
                                     <input
                                         type="checkbox"
                                         checked={formData.specialItems.wheelchair}
@@ -453,7 +453,7 @@ function BookingPageContent() {
                                         <span className="font-medium text-gray-700">Wheelchair Accessible</span>
                                         <p className="text-xs text-gray-500">Vehicle with wheelchair ramp</p>
                                     </div>
-                                </label>
+                                </label> */}
                                 <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
                                     <input
                                         type="checkbox"

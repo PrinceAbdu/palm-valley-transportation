@@ -113,7 +113,7 @@ export default function Footer() {
                             </li>
                             <li>
                                 <a
-                                    href="mailto:info@palmvalleytrans.com"
+                                    href="mailto:palmvalleytransportation.com"
                                     className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors group"
                                 >
                                     <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center group-hover:bg-primary-500/20 transition-colors">
@@ -121,7 +121,7 @@ export default function Footer() {
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-500">Email us</p>
-                                        <p className="font-medium text-white">info@palmvalleytrans.com</p>
+                                        <p className="font-medium text-white">palmvalleytransportation.com</p>
                                     </div>
                                 </a>
                             </li>
@@ -137,7 +137,7 @@ export default function Footer() {
                         </ul>
 
                         {/* Social Links */}
-                        <div className="mt-6">
+                        {/* <div className="mt-6">
                             <p className="text-sm text-gray-500 mb-3">Follow us</p>
                             <div className="flex gap-3">
                                 {['facebook', 'twitter', 'instagram'].map((social) => (
@@ -154,7 +154,7 @@ export default function Footer() {
                                     </a>
                                 ))}
                             </div>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
 

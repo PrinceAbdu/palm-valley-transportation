@@ -156,10 +156,10 @@ export default function VehicleSelectionPage() {
                                         <span className="text-primary-500 mt-0.5">2️⃣</span>
                                         <span className="text-gray-700">You'll receive a price quote via email within 1–2 hours</span>
                                     </li>
-                                    <li className="flex items-start gap-3">
+                                    {/* <li className="flex items-start gap-3">
                                         <span className="text-primary-500 mt-0.5">3️⃣</span>
                                         <span className="text-gray-700">Pay securely with the Stripe payment link in the email</span>
-                                    </li>
+                                    </li> */}
                                     <li className="flex items-start gap-3">
                                         <span className="text-primary-500 mt-0.5">4️⃣</span>
                                         <span className="text-gray-700">We'll assign a driver and confirm your ride!</span>
