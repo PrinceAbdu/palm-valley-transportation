@@ -27,9 +27,13 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASSWORD: z.string().optional().default(''),
   SMTP_FROM: z.string().optional().default(''),
+  SUPABASE_URL: z.string().optional().default(''),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional().default(''),
+  SUPABASE_BUCKET: z.string().optional().default('PVTB'),
   GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
   APP_URL: z.string().optional().default('http://localhost:3000'),
   CRON_SECRET: z.string().optional().default(''),
+  GOOGLE_CLIENT_ID: z.string().optional().default(''),
 });
 
 export const env = envSchema.parse(process.env);

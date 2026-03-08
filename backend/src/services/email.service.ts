@@ -6,6 +6,17 @@ interface EmailParams {
     html: string;
 }
 
+const ADMIN_BOOKING_EMAIL = 'palmvalleytransportation@gmail.com';
+
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function createTransporter() {
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -377,6 +388,85 @@ export async function sendPasswordReset(email: string, resetUrl: string): Promis
                         <p style="margin: 0 0 8px 0;">© 2026 Palm Valley Transportation. All rights reserved.</p>
                         <p style="margin: 0;">🔒 Your security is our priority | 🌐 www.palmvalleytransportation.com</p>
                         <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px;">This is a security-related email. Do not forward to others.</p>
+                    </div>
+                </div>
+            </div>
+        `,
+    });
+}
+
+export async function sendAdminBookingRequestNotification(booking: any): Promise<boolean> {
+    const riderName = [booking?.riderId?.firstName, booking?.riderId?.lastName].filter(Boolean).join(' ').trim();
+    const requestedBy = riderName || booking?.guestName || 'Guest user';
+    const requesterEmail = booking?.riderId?.email || booking?.guestEmail || 'Not provided';
+    const requesterPhone = booking?.riderId?.phone || booking?.guestPhone || 'Not provided';
+    const pickupAddress = booking?.pickup?.address || 'Not provided';
+    const dropoffAddress = booking?.dropoff?.address || 'Not provided';
+    const scheduledDate = booking?.scheduledDate || 'Not provided';
+    const scheduledTime = booking?.scheduledTime || 'Not provided';
+    const tripType = booking?.tripType ? String(booking.tripType).replace('_', ' ') : 'Not provided';
+    const totalPrice = typeof booking?.totalPrice === 'number' ? `$${booking.totalPrice.toFixed(2)}` : 'Not quoted';
+
+    return sendEmail({
+        to: ADMIN_BOOKING_EMAIL,
+        subject: `New Booking Request${booking?.bookingNumber ? ` - #${booking.bookingNumber}` : ''}`,
+        html: `
+            <div style="${emailHeaderStyles}">
+                <div style="${emailContainerStyles}">
+                    <div style="${headerBannerStyles}">
+                        <div style="${logoStyles}">Palm Valley Transportation</div>
+                        <p style="margin: 0; font-size: 14px; color: #e5e7eb;">New booking request received</p>
+                    </div>
+
+                    <div style="${contentStyles}">
+                        <h2 style="${sectionTitleStyles}">Booking Request Alert</h2>
+
+                        <table style="${detailsTableStyles}">
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Booking Number</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(booking?.bookingNumber || 'Pending')}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Requested By</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(requestedBy)}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Email</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(requesterEmail)}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Phone</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(requesterPhone)}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Trip Type</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(tripType)}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Pickup</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(pickupAddress)}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Drop-off</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(dropoffAddress)}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Date & Time</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(`${scheduledDate} ${scheduledTime}`)}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Passengers / Luggage</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(`${booking?.passengers ?? 'N/A'} / ${booking?.luggage ?? 0}`)}</td>
+                            </tr>
+                            <tr style="${detailRowStyles}">
+                                <td style="${detailLabelStyles}"><strong>Total</strong></td>
+                                <td style="${detailValueStyles}">${escapeHtml(totalPrice)}</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="${footerStyles}">
+                        <p style="margin: 0;">Admin notification generated by Palm Valley Transportation backend.</p>
                     </div>
                 </div>
             </div>

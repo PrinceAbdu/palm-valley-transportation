@@ -149,6 +149,6 @@ bookingSchema.pre('save', function (next) {
 // Indexes
 bookingSchema.index({ riderId: 1, createdAt: -1 });
 bookingSchema.index({ status: 1 });
-bookingSchema.index({ bookingNumber: 1 });
+// bookingNumber already has unique:true which creates an index automatically
 const Booking = mongoose_1.default.models.Booking || mongoose_1.default.model('Booking', bookingSchema);
 exports.default = Booking;

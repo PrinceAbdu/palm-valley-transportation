@@ -15,7 +15,7 @@ const envSchema = zod_1.z.object({
     MONGODB_DB_NAME: zod_1.z.string().min(1).default('jacksonville_rides'),
     JWT_SECRET: zod_1.z.string().min(16),
     JWT_EXPIRES_IN: zod_1.z.string().min(1).default('7d'),
-    CORS_ORIGIN: zod_1.z.string().min(1).default('http://localhost:3000'),
+    CORS_ORIGIN: zod_1.z.string().min(1).default('https://palmvalleytransportationn.vercel.app,http://localhost:3000'),
     // Optional environment variables for services
     STRIPE_SECRET_KEY: zod_1.z.string().optional().default(''),
     STRIPE_WEBHOOK_SECRET: zod_1.z.string().optional().default(''),
@@ -27,8 +27,12 @@ const envSchema = zod_1.z.object({
     SMTP_USER: zod_1.z.string().optional().default(''),
     SMTP_PASSWORD: zod_1.z.string().optional().default(''),
     SMTP_FROM: zod_1.z.string().optional().default(''),
+    SUPABASE_URL: zod_1.z.string().optional().default(''),
+    SUPABASE_SERVICE_ROLE_KEY: zod_1.z.string().optional().default(''),
+    SUPABASE_BUCKET: zod_1.z.string().optional().default('PVTB'),
     GOOGLE_MAPS_API_KEY: zod_1.z.string().optional().default(''),
     APP_URL: zod_1.z.string().optional().default('http://localhost:3000'),
     CRON_SECRET: zod_1.z.string().optional().default(''),
+    GOOGLE_CLIENT_ID: zod_1.z.string().optional().default(''),
 });
 exports.env = envSchema.parse(process.env);

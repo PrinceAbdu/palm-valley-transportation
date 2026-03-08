@@ -178,7 +178,7 @@ export default function MyRidesPage() {
                                 </div>
 
                                 <div className="flex gap-3 pt-4 border-t">
-                                    <Button variant="outline" size="sm" onClick={() => router.push(`/booking/${booking._id}`)}>
+                                    <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/my-rides/${booking._id}`)}>
                                         View Details
                                     </Button>
                                     {['paid_pending_confirmation', 'confirmed', 'driver_assigned'].includes(booking.status) && (

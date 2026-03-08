@@ -46,9 +46,38 @@ const Vehicle_1 = __importDefault(require("../models/Vehicle"));
 const PopularPlace_1 = __importDefault(require("../models/PopularPlace"));
 const PricingRule_1 = __importDefault(require("../models/PricingRule"));
 const PromoCode_1 = __importDefault(require("../models/PromoCode"));
+const Notification_1 = __importDefault(require("../models/Notification"));
 const constants_1 = require("../constants");
 const notification_service_1 = require("../services/notification.service");
+const email_service_1 = require("../services/email.service");
 exports.adminRoutes = (0, express_1.Router)();
+async function createBookingStatusNotification(booking, status) {
+    const riderId = booking?.riderId?._id || booking?.riderId;
+    if (!riderId)
+        return;
+    const link = `/dashboard/my-rides/${booking._id}?fromNotification=1`;
+    if (status === constants_1.BOOKING_STATUS.CONFIRMED) {
+        await Notification_1.default.create({
+            userId: riderId,
+            type: 'ride',
+            title: 'Booking Confirmed',
+            message: `Your booking ${booking.bookingNumber} has been confirmed. Thank you for choosing Palm Valley Transportation!`,
+            link,
+            bookingId: booking._id,
+        });
+        return;
+    }
+    if (status === constants_1.BOOKING_STATUS.CANCELLED_BY_ADMIN || status === constants_1.BOOKING_STATUS.DECLINED) {
+        await Notification_1.default.create({
+            userId: riderId,
+            type: 'ride',
+            title: 'Booking Cancelled',
+            message: `Your booking ${booking.bookingNumber} has been cancelled. Please contact support if you need help with rebooking.`,
+            link,
+            bookingId: booking._id,
+        });
+    }
+}
 // All admin routes require auth + admin role
 exports.adminRoutes.use('/admin', auth_1.requireAuth, (0, auth_1.requireRole)('admin'));
 // GET /api/admin/analytics
@@ -114,7 +143,7 @@ exports.adminRoutes.get('/admin/bookings', async (req, res) => {
 // PUT /api/admin/bookings/:id
 exports.adminRoutes.put('/admin/bookings/:id', async (req, res) => {
     try {
-        const { action, status, driverId, vehicleId, notes, quotedPrice, stripePaymentUrl } = req.body;
+        const { action, status, driverId, vehicleId, notes, quotedPrice, stripePaymentUrl, paymentStatus } = req.body;
         const booking = await Booking_1.default.findById(req.params.id)
             .populate('riderId', 'firstName lastName email phone notificationPreferences');
         if (!booking) {
@@ -132,17 +161,25 @@ exports.adminRoutes.put('/admin/bookings/:id', async (req, res) => {
         }
         if (status)
             booking.status = status;
+        if (paymentStatus)
+            booking.paymentStatus = paymentStatus;
         if (driverId)
             booking.driverId = driverId;
         if (vehicleId)
             booking.vehicleId = vehicleId;
         if (notes)
             booking.specialRequests = notes;
-        if (status === constants_1.BOOKING_STATUS.COMPLETED)
+        if (status === constants_1.BOOKING_STATUS.COMPLETED) {
             booking.completedAt = new Date();
+            if (!paymentStatus)
+                booking.paymentStatus = 'paid';
+        }
         if (status && status.includes('cancelled'))
             booking.cancelledAt = new Date();
         await booking.save();
+        if (status) {
+            await createBookingStatusNotification(booking, status);
+        }
         const rider = booking.riderId;
         if (status && rider?.notificationPreferences) {
             await (0, notification_service_1.notifyStatusUpdate)(booking, status, rider.notificationPreferences);
@@ -198,6 +235,7 @@ exports.adminRoutes.post('/admin/bookings/:id/decline', async (req, res) => {
         if (rider?.notificationPreferences) {
             await (0, notification_service_1.notifyStatusUpdate)(booking, 'declined', rider.notificationPreferences);
         }
+        await createBookingStatusNotification(booking, constants_1.BOOKING_STATUS.DECLINED);
         return res.json({ success: true, data: booking, message: 'Booking declined' });
     }
     catch (error) {
@@ -212,7 +250,7 @@ exports.adminRoutes.post('/admin/bookings/quote', async (req, res) => {
         if (!bookingId || quotedPrice === undefined) {
             return res.status(400).json({ success: false, error: 'Booking ID and quoted price are required' });
         }
-        const booking = await Booking_1.default.findById(bookingId);
+        const booking = await Booking_1.default.findById(bookingId).populate('riderId', 'email firstName lastName');
         if (!booking) {
             return res.status(404).json({ success: false, error: 'Booking not found' });
         }
@@ -224,7 +262,39 @@ exports.adminRoutes.post('/admin/bookings/quote', async (req, res) => {
         if (notes)
             booking.specialRequests = `${booking.specialRequests || ''}\nAdmin notes: ${notes}`.trim();
         await booking.save();
-        return res.json({ success: true, data: booking, message: 'Quote sent successfully' });
+        const rider = booking.riderId;
+        const recipientEmail = booking.guestEmail || rider?.email || '';
+        const emailAddressFound = Boolean(recipientEmail);
+        let emailSent = false;
+        if (emailAddressFound) {
+            const paymentLinkHtml = stripePaymentUrl
+                ? `<p><strong>Payment link:</strong> <a href="${stripePaymentUrl}">${stripePaymentUrl}</a></p>`
+                : '';
+            const notesHtml = notes ? `<p><strong>Notes:</strong> ${notes}</p>` : '';
+            emailSent = await (0, email_service_1.sendEmail)({
+                to: recipientEmail,
+                subject: `Quote for Booking ${booking.bookingNumber}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h1 style="color: #1e40af;">Your Price Quote</h1>
+                        <p>Booking <strong>${booking.bookingNumber}</strong> has been quoted.</p>
+                        <p><strong>Quoted Price:</strong> $${Number(quotedPrice).toFixed(2)}</p>
+                        ${paymentLinkHtml}
+                        ${notesHtml}
+                    </div>
+                `,
+            });
+        }
+        return res.json({
+            success: true,
+            data: {
+                booking,
+                emailSent,
+                emailAddressFound,
+                recipientEmail: recipientEmail || null,
+            },
+            message: 'Quote saved successfully',
+        });
     }
     catch (error) {
         console.error('Quote error:', error);
@@ -353,23 +423,88 @@ exports.adminRoutes.get('/admin/vehicles', async (_req, res) => {
 });
 exports.adminRoutes.post('/admin/vehicles', async (req, res) => {
     try {
-        const vehicle = await Vehicle_1.default.create(req.body);
+        const payload = { ...req.body };
+        if (payload.registrationNumber) {
+            payload.registrationNumber = String(payload.registrationNumber).trim().toUpperCase();
+        }
+        if (!payload.vin && payload.registrationNumber) {
+            payload.vin = payload.registrationNumber;
+        }
+        if (payload.vin) {
+            payload.vin = String(payload.vin).trim().toUpperCase();
+        }
+        if (payload.vin === '') {
+            delete payload.vin;
+        }
+        if (!payload.licensePlate && payload.registrationNumber) {
+            payload.licensePlate = payload.registrationNumber;
+        }
+        if (payload.licensePlate === '') {
+            delete payload.licensePlate;
+        }
+        const existingVehicle = await Vehicle_1.default.findOne({
+            registrationNumber: { $regex: `^${payload.registrationNumber}$`, $options: 'i' },
+        }).lean();
+        if (existingVehicle) {
+            return res.status(409).json({ success: false, error: 'A vehicle with this registration number already exists' });
+        }
+        const vehicle = await Vehicle_1.default.create(payload);
         return res.status(201).json({ success: true, data: vehicle });
     }
     catch (error) {
         console.error('Create vehicle error:', error);
+        if (error?.code === 11000 && error?.keyPattern?.registrationNumber) {
+            return res.status(409).json({ success: false, error: 'A vehicle with this registration number already exists' });
+        }
+        if (error?.code === 11000 && error?.keyPattern?.vin) {
+            return res.status(409).json({ success: false, error: 'A vehicle with this VIN already exists' });
+        }
         return res.status(500).json({ success: false, error: error.message || 'Failed to create vehicle' });
     }
 });
 exports.adminRoutes.put('/admin/vehicles/:id', async (req, res) => {
     try {
-        const vehicle = await Vehicle_1.default.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const payload = { ...req.body };
+        if (payload.registrationNumber) {
+            payload.registrationNumber = String(payload.registrationNumber).trim().toUpperCase();
+        }
+        if (!payload.vin && payload.registrationNumber) {
+            payload.vin = payload.registrationNumber;
+        }
+        if (payload.vin) {
+            payload.vin = String(payload.vin).trim().toUpperCase();
+        }
+        if (payload.vin === '') {
+            delete payload.vin;
+        }
+        if (!payload.licensePlate && payload.registrationNumber) {
+            payload.licensePlate = payload.registrationNumber;
+        }
+        if (payload.licensePlate === '') {
+            delete payload.licensePlate;
+        }
+        if (payload.registrationNumber) {
+            const existingVehicle = await Vehicle_1.default.findOne({
+                _id: { $ne: req.params.id },
+                registrationNumber: { $regex: `^${payload.registrationNumber}$`, $options: 'i' },
+            }).lean();
+            if (existingVehicle) {
+                return res.status(409).json({ success: false, error: 'A vehicle with this registration number already exists' });
+            }
+        }
+        const vehicle = await Vehicle_1.default.findByIdAndUpdate(req.params.id, payload, { new: true });
         if (!vehicle)
             return res.status(404).json({ success: false, error: 'Vehicle not found' });
         return res.json({ success: true, data: vehicle, message: 'Vehicle updated' });
     }
     catch (error) {
         console.error('Update vehicle error:', error);
+        if (error?.code === 11000 && error?.keyPattern?.registrationNumber) {
+            return res.status(409).json({ success: false, error: 'A vehicle with this registration number already exists' });
+        }
+        if (error?.code === 11000 && error?.keyPattern?.vin) {
+            return res.status(409).json({ success: false, error: 'A vehicle with this VIN already exists' });
+        }
         return res.status(500).json({ success: false, error: 'Failed to update vehicle' });
     }
 });

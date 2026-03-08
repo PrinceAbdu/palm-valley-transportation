@@ -11,6 +11,7 @@ const Vehicle_1 = __importDefault(require("../models/Vehicle"));
 const constants_1 = require("../constants");
 const pricing_service_1 = require("../services/pricing.service");
 const receipt_service_1 = require("../services/receipt.service");
+const email_service_1 = require("../services/email.service");
 exports.bookingRoutes = (0, express_1.Router)();
 // POST /api/bookings - Create booking
 exports.bookingRoutes.post('/bookings', async (req, res) => {
@@ -19,6 +20,10 @@ exports.bookingRoutes.post('/bookings', async (req, res) => {
         const booking = await Booking_1.default.create({
             ...body,
             status: body.status || 'pending_payment',
+        });
+        // Send admin alert without blocking booking creation response.
+        void (0, email_service_1.sendAdminBookingRequestNotification)(booking).catch((error) => {
+            console.error('Failed to send admin booking request email:', error);
         });
         return res.status(201).json({ success: true, data: booking });
     }

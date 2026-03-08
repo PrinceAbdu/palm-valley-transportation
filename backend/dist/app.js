@@ -16,8 +16,32 @@ const notFound_1 = require("./middleware/notFound");
 const errorHandler_1 = require("./middleware/errorHandler");
 function createApp() {
     const app = (0, express_1.default)();
+    const allowedOrigins = env_1.env.CORS_ORIGIN.split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+    const isAllowedOrigin = (requestOrigin) => {
+        return allowedOrigins.some((allowedOrigin) => {
+            if (allowedOrigin === '*')
+                return true;
+            if (allowedOrigin === requestOrigin)
+                return true;
+            if (allowedOrigin.includes('*')) {
+                const escapedPattern = allowedOrigin
+                    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+                    .replace(/\*/g, '.*');
+                return new RegExp(`^${escapedPattern}$`).test(requestOrigin);
+            }
+            return false;
+        });
+    };
     app.use((0, cors_1.default)({
-        origin: env_1.env.CORS_ORIGIN === '*' ? true : env_1.env.CORS_ORIGIN,
+        origin: (origin, callback) => {
+            if (!origin)
+                return callback(null, true);
+            if (isAllowedOrigin(origin))
+                return callback(null, true);
+            return callback(new Error(`CORS blocked for origin: ${origin}`));
+        },
         credentials: true,
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

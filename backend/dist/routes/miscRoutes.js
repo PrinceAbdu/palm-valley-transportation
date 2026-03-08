@@ -44,10 +44,17 @@ const Vehicle_1 = __importDefault(require("../models/Vehicle"));
 const PopularPlace_1 = __importDefault(require("../models/PopularPlace"));
 const PromoCode_1 = __importDefault(require("../models/PromoCode"));
 const Driver_1 = __importDefault(require("../models/Driver"));
+const Notification_1 = __importDefault(require("../models/Notification"));
 const reminder_service_1 = require("../services/reminder.service");
 const email_service_1 = require("../services/email.service");
 const sms_service_1 = require("../services/sms.service");
+const multer_1 = __importDefault(require("multer"));
+const storage_service_1 = require("../services/storage.service");
 exports.miscRoutes = (0, express_1.Router)();
+const upload = (0, multer_1.default)({
+    storage: multer_1.default.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+});
 // --- User Profile ---
 // GET /api/users/profile
 exports.miscRoutes.get('/users/profile', auth_1.requireAuth, async (req, res) => {
@@ -326,29 +333,31 @@ exports.miscRoutes.get('/geocode', async (req, res) => {
 });
 // --- File Upload ---
 // POST /api/upload
-exports.miscRoutes.post('/upload', async (req, res) => {
+exports.miscRoutes.post('/upload', upload.single('file'), async (req, res) => {
     try {
-        // For file upload, we'll use multer which will be configured separately
-        // This is a placeholder that handles base64-encoded files in JSON body
-        const { filename, data, contentType } = req.body;
-        if (!data) {
-            return res.status(400).json({ success: false, error: 'No file data provided' });
+        const file = req.file;
+        const { filename, data, contentType } = req.body || {};
+        let fileBuffer = null;
+        let originalName = 'upload.jpg';
+        let mimeType = 'image/jpeg';
+        if (file?.buffer) {
+            fileBuffer = file.buffer;
+            originalName = file.originalname || originalName;
+            mimeType = file.mimetype || mimeType;
         }
-        const fs = require('fs');
-        const path = require('path');
-        const uploadsDir = path.join(process.cwd(), 'uploads');
-        if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
+        else if (data) {
+            const rawData = String(data).replace(/^data:[^;]+;base64,/, '');
+            fileBuffer = Buffer.from(rawData, 'base64');
+            originalName = filename || originalName;
+            mimeType = contentType || mimeType;
         }
-        const ext = filename?.split('.').pop() || 'jpg';
-        const newFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-        const filePath = path.join(uploadsDir, newFilename);
-        const buffer = Buffer.from(data, 'base64');
-        fs.writeFileSync(filePath, buffer);
-        const fileUrl = `/uploads/${newFilename}`;
+        if (!fileBuffer || !fileBuffer.length) {
+            return res.status(400).json({ success: false, error: 'No image provided' });
+        }
+        const uploaded = await (0, storage_service_1.uploadImage)(fileBuffer, originalName, mimeType);
         return res.json({
             success: true,
-            data: { url: fileUrl, filename: newFilename },
+            data: { url: uploaded.url, filename: uploaded.filename, provider: uploaded.provider },
         });
     }
     catch (error) {
@@ -380,6 +389,53 @@ exports.miscRoutes.get('/cron/reminders', async (req, res) => {
     }
 });
 // --- Notifications ---
+// GET /api/notifications - Current user's notifications
+exports.miscRoutes.get('/notifications', auth_1.requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const notifications = await Notification_1.default.find({ userId })
+            .sort({ createdAt: -1 })
+            .limit(100)
+            .lean();
+        const unreadCount = await Notification_1.default.countDocuments({ userId, read: false });
+        return res.json({ success: true, data: notifications, unreadCount });
+    }
+    catch (error) {
+        console.error('Error fetching notifications:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Failed to fetch notifications' });
+    }
+});
+// PUT /api/notifications/:id/read
+exports.miscRoutes.put('/notifications/:id/read', auth_1.requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const notification = await Notification_1.default.findOne({ _id: req.params.id, userId });
+        if (!notification) {
+            return res.status(404).json({ success: false, error: 'Notification not found' });
+        }
+        if (!notification.read) {
+            notification.read = true;
+            await notification.save();
+        }
+        return res.json({ success: true, data: notification });
+    }
+    catch (error) {
+        console.error('Error marking notification as read:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Failed to update notification' });
+    }
+});
+// PUT /api/notifications/read-all
+exports.miscRoutes.put('/notifications/read-all', auth_1.requireAuth, async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        await Notification_1.default.updateMany({ userId, read: false }, { $set: { read: true } });
+        return res.json({ success: true, message: 'All notifications marked as read' });
+    }
+    catch (error) {
+        console.error('Error marking all notifications as read:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Failed to update notifications' });
+    }
+});
 // POST /api/notifications/send-email (admin only)
 exports.miscRoutes.post('/notifications/send-email', auth_1.requireAuth, async (req, res) => {
     try {

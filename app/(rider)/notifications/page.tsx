@@ -5,80 +5,89 @@ import { useRouter } from 'next/navigation';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
+import { api } from '@/lib/api';
 
 interface Notification {
-    id: string;
+    _id: string;
     type: 'ride' | 'payment' | 'promo' | 'system';
     title: string;
     message: string;
     read: boolean;
     createdAt: string;
+    link?: string;
 }
-
-const mockNotifications: Notification[] = [
-    {
-        id: '1',
-        type: 'ride',
-        title: 'Ride Confirmed',
-        message: 'Your ride for January 25th has been confirmed. Driver will be assigned shortly.',
-        read: false,
-        createdAt: new Date().toISOString(),
-    },
-    {
-        id: '2',
-        type: 'payment',
-        title: 'Payment Successful',
-        message: 'Your payment of $85.50 has been processed successfully.',
-        read: false,
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-        id: '3',
-        type: 'ride',
-        title: 'Driver Assigned',
-        message: 'John D. has been assigned to your upcoming ride. They will contact you soon.',
-        read: true,
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-    },
-    {
-        id: '4',
-        type: 'promo',
-        title: '20% Off Your Next Ride!',
-        message: 'Use code WELCOME20 for 20% off your next booking. Valid until Jan 31st.',
-        read: true,
-        createdAt: new Date(Date.now() - 172800000).toISOString(),
-    },
-    {
-        id: '5',
-        type: 'system',
-        title: 'Profile Updated',
-        message: 'Your profile information has been updated successfully.',
-        read: true,
-        createdAt: new Date(Date.now() - 259200000).toISOString(),
-    },
-];
 
 export default function NotificationsPage() {
     const router = useRouter();
-    const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [filter, setFilter] = useState('all');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) {
             router.push('/login');
+            return;
         }
+
+        fetchNotifications(token);
     }, [router]);
 
-    const markAsRead = (id: string) => {
-        setNotifications(notifications.map(n =>
-            n.id === id ? { ...n, read: true } : n
-        ));
+    const fetchNotifications = async (token: string) => {
+        try {
+            const response = await api('/api/notifications', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                setNotifications(data.data || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch notifications:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const markAllAsRead = () => {
-        setNotifications(notifications.map(n => ({ ...n, read: true })));
+    const markAsRead = async (id: string) => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+            await api(`/api/notifications/${id}/read`, {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, read: true } : n)));
+        } catch (error) {
+            console.error('Failed to mark notification as read:', error);
+        }
+    };
+
+    const markAllAsRead = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        try {
+            await api('/api/notifications/read-all', {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        } catch (error) {
+            console.error('Failed to mark all notifications as read:', error);
+        }
+    };
+
+    const handleNotificationClick = async (notification: Notification) => {
+        if (!notification.read) {
+            await markAsRead(notification._id);
+        }
+
+        if (notification.link) {
+            router.push(notification.link);
+        }
     };
 
     const getIcon = (type: string) => {
@@ -98,6 +107,16 @@ export default function NotificationsPage() {
     );
 
     const unreadCount = notifications.filter(n => !n.read).length;
+
+    if (loading) {
+        return (
+            <main className="py-8">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[300px] flex items-center justify-center">
+                    <Spinner size="lg" />
+                </div>
+            </main>
+        );
+    }
 
     return (
         <main className="py-8">
@@ -136,11 +155,11 @@ export default function NotificationsPage() {
                 <div className="space-y-4">
                     {filteredNotifications.map((notification) => (
                         <Card
-                            key={notification.id}
+                            key={notification._id}
                             variant={notification.read ? 'default' : 'elevated'}
                             padding="md"
                             className={`cursor-pointer transition ${!notification.read ? 'border-l-4 border-l-primary-500' : ''}`}
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={() => handleNotificationClick(notification)}
                         >
                             <div className="flex gap-4">
                                 <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl">
@@ -162,6 +181,9 @@ export default function NotificationsPage() {
                                         <span className="inline-block mt-2 text-xs bg-primary-100 text-primary-700 px-2 py-1 rounded-full">
                                             New
                                         </span>
+                                    )}
+                                    {notification.link && (
+                                        <p className="text-xs text-primary-600 mt-2 font-medium">Tap to view booking details</p>
                                     )}
                                 </div>
                             </div>

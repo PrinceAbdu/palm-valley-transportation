@@ -48,7 +48,7 @@ export default function AdminBookingsPage() {
     const assignDriver = async (bookingId: string, driverId: string) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await api(`/api/bookings/${bookingId}`, {
+            const res = await api(`/api/admin/bookings/${bookingId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -62,6 +62,80 @@ export default function AdminBookingsPage() {
             }
         } catch (error) {
             console.error('Error assigning driver:', error);
+        }
+    };
+
+    const updateBookingStatus = async (bookingId: string, status: string) => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('You are not authenticated.');
+            return;
+        }
+
+        const actionLabel = status === 'confirmed' ? 'confirm' : 'cancel';
+        if (!confirm(`Are you sure you want to ${actionLabel} this booking?`)) {
+            return;
+        }
+
+        try {
+            const res = await api(`/api/admin/bookings/${bookingId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ status }),
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                fetchData(token);
+                alert(status === 'confirmed'
+                    ? 'Booking confirmed and user notified.'
+                    : 'Booking cancelled and user notified.');
+            } else {
+                alert(data.error || 'Failed to update booking status');
+            }
+        } catch (error) {
+            console.error('Error updating booking status:', error);
+            alert('Failed to update booking status.');
+        }
+    };
+
+    const markCompletedAndPaid = async (bookingId: string) => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('You are not authenticated.');
+            return;
+        }
+
+        if (!confirm('Mark this booking as completed and payment as paid?')) {
+            return;
+        }
+
+        try {
+            const res = await api(`/api/admin/bookings/${bookingId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    status: 'completed',
+                    paymentStatus: 'paid',
+                }),
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                fetchData(token);
+                alert('Booking marked as completed and paid.');
+            } else {
+                alert(data.error || 'Failed to mark booking completed');
+            }
+        } catch (error) {
+            console.error('Error marking booking completed:', error);
+            alert('Failed to mark booking completed.');
         }
     };
 
@@ -238,6 +312,43 @@ export default function AdminBookingsPage() {
                                                 </select>
                                             )}
                                         </div>
+
+                                        {booking.quoteStatus === 'quoted' && ![
+                                            'confirmed',
+                                            'cancelled_by_admin',
+                                            'cancelled_by_rider',
+                                            'completed',
+                                            'declined',
+                                        ].includes(booking.status) && (
+                                            <div className="mt-3 flex gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    className="!bg-green-600 hover:!bg-green-700"
+                                                    onClick={() => updateBookingStatus(booking._id, 'confirmed')}
+                                                >
+                                                    Confirm
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="danger"
+                                                    onClick={() => updateBookingStatus(booking._id, 'cancelled_by_admin')}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {['confirmed', 'driver_assigned', 'in_progress'].includes(booking.status) && (
+                                            <div className="mt-2">
+                                                <Button
+                                                    size="sm"
+                                                    className="w-full !bg-indigo-600 hover:!bg-indigo-700"
+                                                    onClick={() => markCompletedAndPaid(booking._id)}
+                                                >
+                                                    Mark Completed
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

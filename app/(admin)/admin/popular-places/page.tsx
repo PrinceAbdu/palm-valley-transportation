@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import { api } from '@/lib/api';
+import { uploadImageFromBrowser } from '@/lib/supabaseStorage';
 
 interface PopularPlace {
     _id: string;
@@ -45,10 +46,14 @@ export default function PopularPlacesPage() {
 
     const fetchPlaces = async () => {
         try {
-            const res = await api('/api/popular-places');
+            const token = localStorage.getItem('token');
+            const res = await api('/api/admin/popular-places', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
             const data = await res.json();
             if (data.success) {
-                setPlaces(data.data);
+                const sorted = [...(data.data || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                setPlaces(sorted);
             }
         } catch (error) {
             console.error('Error fetching places:', error);
@@ -67,23 +72,13 @@ export default function PopularPlacesPage() {
         reader.readAsDataURL(file);
 
         setUploading(true);
-        const uploadForm = new FormData();
-        uploadForm.append('file', file);
 
         try {
-            const response = await api('/api/upload', {
-                method: 'POST',
-                body: uploadForm,
-            });
-            const data = await response.json();
-            if (data.success) {
-                setFormData(prev => ({ ...prev, imageUrl: data.data.url }));
-            } else {
-                alert(data.error || 'Upload failed');
-                setImagePreview(null);
-            }
-        } catch {
-            alert('Failed to upload image');
+            const publicUrl = await uploadImageFromBrowser(file, 'popular-places');
+            setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
+        } catch (error: any) {
+            const reason = error?.message ? `: ${error.message}` : '';
+            alert(`Failed to upload image to Supabase${reason}`);
             setImagePreview(null);
         } finally {
             setUploading(false);
@@ -95,15 +90,19 @@ export default function PopularPlacesPage() {
         setSaving(true);
 
         try {
+            const token = localStorage.getItem('token');
             const url = editingId
-                ? `/api/popular-places/${editingId}`
-                : '/api/popular-places';
+                ? `/api/admin/popular-places/${editingId}`
+                : '/api/admin/popular-places';
             const method = editingId ? 'PUT' : 'POST';
 
             const res = await api(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ ...formData, order: Number(formData.order) || 0 }),
             });
 
             const data = await res.json();
@@ -136,7 +135,11 @@ export default function PopularPlacesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this place?')) return;
         try {
-            const res = await api(`/api/popular-places/${id}`, { method: 'DELETE' });
+            const token = localStorage.getItem('token');
+            const res = await api(`/api/admin/popular-places/${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
             const data = await res.json();
             if (data.success) {
                 fetchPlaces();
@@ -292,9 +295,10 @@ export default function PopularPlacesPage() {
                         {/* Order + Active */}
                         <div className="grid grid-cols-2 gap-4">
                             <Input
-                                label="Display Order"
+                                label="Order Number"
                                 type="number"
                                 value={formData.order.toString()}
+                                min="0"
                                 onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
                             />
                             <div className="flex items-end pb-1">
@@ -352,6 +356,7 @@ export default function PopularPlacesPage() {
                                     <div>
                                         <h3 className="font-bold text-gray-900">{place.name}</h3>
                                         <p className="text-sm text-gray-600">{place.description}</p>
+                                        <p className="text-xs text-gray-500 mt-1">Order #{place.order ?? 0}</p>
                                     </div>
                                 </div>
                                 <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ${place.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'

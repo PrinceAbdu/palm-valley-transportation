@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { api } from '@/lib/api';
 
 interface NavItem {
     href: string;
@@ -15,13 +16,35 @@ interface NavItem {
 const riderNavItems: NavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/dashboard/my-rides', label: 'My Rides', icon: '🚗' },
+    { href: '/notifications', label: 'Notifications', icon: '🔔' },
     { href: '/profile', label: 'Profile', icon: '👤' },
-    // { href: '/notifications', label: 'Notifications', icon: '🔔' },
     // { href: '/receipts', label: 'Receipts', icon: '🧾' },
 ];
 
 export default function RiderLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const fetchUnreadCount = async () => {
+            try {
+                const response = await api('/api/notifications', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setUnreadNotifications(data.unreadCount || 0);
+                }
+            } catch (error) {
+                console.error('Failed to load unread notifications count:', error);
+            }
+        };
+
+        fetchUnreadCount();
+    }, [pathname]);
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -40,7 +63,17 @@ export default function RiderLayout({ children }: { children: React.ReactNode })
                                     : 'text-gray-600 hover:bg-gray-100'
                                     }`}
                             >
-                                <span>{item.icon}</span>
+                                <span className="relative">
+                                    {item.icon}
+                                    {item.href === '/notifications' && unreadNotifications > 0 && (
+                                        <span
+                                            className="absolute -top-1 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-bold"
+                                            title={`${unreadNotifications} unread notifications`}
+                                        >
+                                            {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                                        </span>
+                                    )}
+                                </span>
                                 <span>{item.label}</span>
                             </Link>
                         ))}

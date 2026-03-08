@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { User } from '../models/User';
 import { generateToken, verifyToken, generateResetToken, verifyResetToken } from '../utils/jwt';
 import { sendPasswordReset } from '../services/email.service';
+import { env } from '../config/env';
 
 export const authRoutes = Router();
 
@@ -118,37 +119,85 @@ authRoutes.post('/auth/login', async (req: Request, res: Response) => {
 // POST /api/auth/google
 authRoutes.post('/auth/google', async (req: Request, res: Response) => {
     try {
-        const { idToken, email, name, picture } = req.body;
+        const { idToken } = req.body;
 
         if (!idToken) {
             return res.status(400).json({ success: false, error: 'ID token is required' });
         }
 
-        // Verify token with Google
-        const googleResponse = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + idToken);
-        const tokenInfo = await googleResponse.json();
-
-        if (!tokenInfo.email) {
+        // Verify Google ID token.
+        const googleResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+        if (!googleResponse.ok) {
             return res.status(401).json({ success: false, error: 'Invalid Google token' });
         }
 
-        let user = await User.findOne({ email: email.toLowerCase() });
+        const tokenInfo = await googleResponse.json();
+        const tokenEmail = tokenInfo?.email;
+        const tokenSub = tokenInfo?.sub;
+        const tokenAud = tokenInfo?.aud;
+        const tokenGivenName = tokenInfo?.given_name;
+        const tokenFamilyName = tokenInfo?.family_name;
+        const tokenName = tokenInfo?.name;
+        const tokenPicture = tokenInfo?.picture;
+        const tokenEmailVerified = tokenInfo?.email_verified;
+
+        if (!tokenEmail || !tokenSub) {
+            return res.status(401).json({ success: false, error: 'Invalid Google token' });
+        }
+
+        if (env.GOOGLE_CLIENT_ID && tokenAud !== env.GOOGLE_CLIENT_ID) {
+            return res.status(401).json({ success: false, error: 'Google token audience mismatch' });
+        }
+
+        if (String(tokenEmailVerified).toLowerCase() !== 'true') {
+            return res.status(401).json({ success: false, error: 'Google email is not verified' });
+        }
+
+        const emailLower = String(tokenEmail).toLowerCase();
+        let user = await User.findOne({ email: emailLower });
 
         if (!user) {
-            const [firstName, ...lastNameParts] = name.split(' ');
+            const fullName = tokenName || '';
+            const [fallbackFirstName, ...lastNameParts] = fullName.split(' ');
+            const firstName = tokenGivenName || fallbackFirstName || 'Google';
             const lastName = lastNameParts.join(' ') || '';
 
             user = await User.create({
                 firstName,
                 lastName,
-                email: email.toLowerCase(),
+                email: emailLower,
+                phone: 'Not provided',
                 password: Math.random().toString(36).slice(-15),
                 role: 'rider',
                 isActive: true,
-                profilePicture: picture,
+                profilePicture: tokenPicture,
+                isEmailVerified: true,
                 oauthProvider: 'google',
-                oauthId: tokenInfo.sub,
+                oauthId: tokenSub,
             });
+        } else {
+            let changed = false;
+
+            if (!user.oauthProvider) {
+                user.oauthProvider = 'google';
+                changed = true;
+            }
+            if (!user.oauthId) {
+                user.oauthId = tokenSub;
+                changed = true;
+            }
+            if (!user.profilePicture && tokenPicture) {
+                user.profilePicture = tokenPicture;
+                changed = true;
+            }
+            if (!user.isEmailVerified) {
+                user.isEmailVerified = true;
+                changed = true;
+            }
+
+            if (changed) {
+                await user.save();
+            }
         }
 
         if (!user.isActive) {

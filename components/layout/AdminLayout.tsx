@@ -52,12 +52,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
 
         if (userData) {
-            const parsed = JSON.parse(userData);
-            if (parsed.role !== 'admin') {
+            try {
+                const parsed = JSON.parse(userData);
+                if (parsed.role !== 'admin') {
+                    router.push('/login');
+                    return;
+                }
+                setUser(parsed);
+            } catch (error) {
+                console.error('Invalid user data in localStorage. Clearing session.', error);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
                 router.push('/login');
                 return;
             }
-            setUser(parsed);
         }
     }, [router]);
 

@@ -7,11 +7,42 @@ import Vehicle from '../models/Vehicle';
 import PopularPlace from '../models/PopularPlace';
 import PricingRule from '../models/PricingRule';
 import PromoCode from '../models/PromoCode';
+import Notification from '../models/Notification';
 import { BOOKING_STATUS } from '../constants';
 import { notifyStatusUpdate, notifyDriverAssigned } from '../services/notification.service';
 import { sendEmail } from '../services/email.service';
 
 export const adminRoutes = Router();
+
+async function createBookingStatusNotification(booking: any, status: string): Promise<void> {
+    const riderId = booking?.riderId?._id || booking?.riderId;
+    if (!riderId) return;
+
+    const link = `/dashboard/my-rides/${booking._id}?fromNotification=1`;
+
+    if (status === BOOKING_STATUS.CONFIRMED) {
+        await Notification.create({
+            userId: riderId,
+            type: 'ride',
+            title: 'Booking Confirmed',
+            message: `Your booking ${booking.bookingNumber} has been confirmed. Thank you for choosing Palm Valley Transportation!`,
+            link,
+            bookingId: booking._id,
+        });
+        return;
+    }
+
+    if (status === BOOKING_STATUS.CANCELLED_BY_ADMIN || status === BOOKING_STATUS.DECLINED) {
+        await Notification.create({
+            userId: riderId,
+            type: 'ride',
+            title: 'Booking Cancelled',
+            message: `Your booking ${booking.bookingNumber} has been cancelled. Please contact support if you need help with rebooking.`,
+            link,
+            bookingId: booking._id,
+        });
+    }
+}
 
 // All admin routes require auth + admin role
 adminRoutes.use('/admin', requireAuth, requireRole('admin'));
@@ -85,7 +116,7 @@ adminRoutes.get('/admin/bookings', async (req: Request, res: Response) => {
 // PUT /api/admin/bookings/:id
 adminRoutes.put('/admin/bookings/:id', async (req: Request, res: Response) => {
     try {
-        const { action, status, driverId, vehicleId, notes, quotedPrice, stripePaymentUrl } = req.body;
+        const { action, status, driverId, vehicleId, notes, quotedPrice, stripePaymentUrl, paymentStatus } = req.body;
 
         const booking = await Booking.findById(req.params.id)
             .populate('riderId', 'firstName lastName email phone notificationPreferences');
@@ -105,14 +136,22 @@ adminRoutes.put('/admin/bookings/:id', async (req: Request, res: Response) => {
         }
 
         if (status) booking.status = status;
+        if (paymentStatus) booking.paymentStatus = paymentStatus;
         if (driverId) booking.driverId = driverId;
         if (vehicleId) booking.vehicleId = vehicleId;
         if (notes) booking.specialRequests = notes;
 
-        if (status === BOOKING_STATUS.COMPLETED) booking.completedAt = new Date();
+        if (status === BOOKING_STATUS.COMPLETED) {
+            booking.completedAt = new Date();
+            if (!paymentStatus) booking.paymentStatus = 'paid';
+        }
         if (status && status.includes('cancelled')) booking.cancelledAt = new Date();
 
         await booking.save();
+
+        if (status) {
+            await createBookingStatusNotification(booking, status);
+        }
 
         const rider: any = booking.riderId;
         if (status && rider?.notificationPreferences) {
@@ -175,6 +214,8 @@ adminRoutes.post('/admin/bookings/:id/decline', async (req: Request, res: Respon
         if (rider?.notificationPreferences) {
             await notifyStatusUpdate(booking, 'declined', rider.notificationPreferences);
         }
+
+        await createBookingStatusNotification(booking, BOOKING_STATUS.DECLINED);
 
         return res.json({ success: true, data: booking, message: 'Booking declined' });
     } catch (error: any) {

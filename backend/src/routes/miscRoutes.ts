@@ -5,11 +5,19 @@ import Vehicle from '../models/Vehicle';
 import PopularPlace from '../models/PopularPlace';
 import PromoCode from '../models/PromoCode';
 import Driver from '../models/Driver';
+import Notification from '../models/Notification';
 import { processReminders } from '../services/reminder.service';
 import { sendEmail } from '../services/email.service';
 import { sendSMS } from '../services/sms.service';
+import multer from 'multer';
+import { uploadImage } from '../services/storage.service';
 
 export const miscRoutes = Router();
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 // --- User Profile ---
 // GET /api/users/profile
@@ -303,36 +311,35 @@ miscRoutes.get('/geocode', async (req: Request, res: Response) => {
 
 // --- File Upload ---
 // POST /api/upload
-miscRoutes.post('/upload', async (req: Request, res: Response) => {
+miscRoutes.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
     try {
-        // For file upload, we'll use multer which will be configured separately
-        // This is a placeholder that handles base64-encoded files in JSON body
-        const { filename, data, contentType } = req.body;
+        const file = req.file;
+        const { filename, data, contentType } = req.body || {};
 
-        if (!data) {
-            return res.status(400).json({ success: false, error: 'No file data provided' });
+        let fileBuffer: Buffer | null = null;
+        let originalName = 'upload.jpg';
+        let mimeType = 'image/jpeg';
+
+        if (file?.buffer) {
+            fileBuffer = file.buffer;
+            originalName = file.originalname || originalName;
+            mimeType = file.mimetype || mimeType;
+        } else if (data) {
+            const rawData = String(data).replace(/^data:[^;]+;base64,/, '');
+            fileBuffer = Buffer.from(rawData, 'base64');
+            originalName = filename || originalName;
+            mimeType = contentType || mimeType;
         }
 
-        const fs = require('fs');
-        const path = require('path');
-        const uploadsDir = path.join(process.cwd(), 'uploads');
-
-        if (!fs.existsSync(uploadsDir)) {
-            fs.mkdirSync(uploadsDir, { recursive: true });
+        if (!fileBuffer || !fileBuffer.length) {
+            return res.status(400).json({ success: false, error: 'No image provided' });
         }
 
-        const ext = filename?.split('.').pop() || 'jpg';
-        const newFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-        const filePath = path.join(uploadsDir, newFilename);
-
-        const buffer = Buffer.from(data, 'base64');
-        fs.writeFileSync(filePath, buffer);
-
-        const fileUrl = `/uploads/${newFilename}`;
+        const uploaded = await uploadImage(fileBuffer, originalName, mimeType);
 
         return res.json({
             success: true,
-            data: { url: fileUrl, filename: newFilename },
+            data: { url: uploaded.url, filename: uploaded.filename, provider: uploaded.provider },
         });
     } catch (error: any) {
         console.error('Upload error:', error);
@@ -367,6 +374,60 @@ miscRoutes.get('/cron/reminders', async (req: Request, res: Response) => {
 });
 
 // --- Notifications ---
+// GET /api/notifications - Current user's notifications
+miscRoutes.get('/notifications', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        const notifications = await Notification.find({ userId })
+            .sort({ createdAt: -1 })
+            .limit(100)
+            .lean();
+
+        const unreadCount = await Notification.countDocuments({ userId, read: false });
+
+        return res.json({ success: true, data: notifications, unreadCount });
+    } catch (error: any) {
+        console.error('Error fetching notifications:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Failed to fetch notifications' });
+    }
+});
+
+// PUT /api/notifications/:id/read
+miscRoutes.put('/notifications/:id/read', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        const notification = await Notification.findOne({ _id: req.params.id, userId });
+
+        if (!notification) {
+            return res.status(404).json({ success: false, error: 'Notification not found' });
+        }
+
+        if (!notification.read) {
+            notification.read = true;
+            await notification.save();
+        }
+
+        return res.json({ success: true, data: notification });
+    } catch (error: any) {
+        console.error('Error marking notification as read:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Failed to update notification' });
+    }
+});
+
+// PUT /api/notifications/read-all
+miscRoutes.put('/notifications/read-all', requireAuth, async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+
+        await Notification.updateMany({ userId, read: false }, { $set: { read: true } });
+
+        return res.json({ success: true, message: 'All notifications marked as read' });
+    } catch (error: any) {
+        console.error('Error marking all notifications as read:', error);
+        return res.status(500).json({ success: false, error: error.message || 'Failed to update notifications' });
+    }
+});
+
 // POST /api/notifications/send-email (admin only)
 miscRoutes.post('/notifications/send-email', requireAuth, async (req: Request, res: Response) => {
     try {

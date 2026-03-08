@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Spinner from '@/components/ui/Spinner';
 import { api } from '@/lib/api';
+import { uploadImageFromBrowser } from '@/lib/supabaseStorage';
 
 const INITIAL_FORM = {
     name: '',
@@ -79,23 +80,13 @@ export default function AdminVehiclesPage() {
         reader.readAsDataURL(file);
 
         setUploading(true);
-        const uploadForm = new FormData();
-        uploadForm.append('file', file);
 
         try {
-            const response = await api('/api/upload', {
-                method: 'POST',
-                body: uploadForm,
-            });
-            const data = await response.json();
-            if (data.success) {
-                setFormData(prev => ({ ...prev, imageUrl: data.data.url }));
-            } else {
-                alert(data.error || 'Upload failed');
-                setImagePreview(null);
-            }
-        } catch {
-            alert('Failed to upload image');
+            const publicUrl = await uploadImageFromBrowser(file, 'vehicles');
+            setFormData(prev => ({ ...prev, imageUrl: publicUrl }));
+        } catch (error: any) {
+            const reason = error?.message ? `: ${error.message}` : '';
+            alert(`Failed to upload image to Supabase${reason}`);
             setImagePreview(null);
         } finally {
             setUploading(false);

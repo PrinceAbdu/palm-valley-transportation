@@ -34,34 +34,43 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-const vehicleSchema = new mongoose_1.Schema({
-    name: { type: String, required: true, trim: true },
-    description: { type: String, required: true },
-    type: { type: String, required: true, enum: ['sedan', 'suv', 'van', 'luxury'] },
-    vin: {
-        type: String,
-        unique: true,
-        trim: true,
-        default: function () {
-            return this.registrationNumber;
-        },
+const notificationSchema = new mongoose_1.Schema({
+    userId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+        index: true,
     },
-    licensePlate: {
+    type: {
         type: String,
-        unique: true,
-        trim: true,
-        default: function () {
-            return this.registrationNumber;
-        },
+        enum: ['ride', 'payment', 'promo', 'system'],
+        default: 'system',
     },
-    registrationNumber: { type: String, required: true, unique: true, trim: true },
-    maxPassengers: { type: Number, required: true, min: 1 },
-    maxLuggage: { type: Number, required: true, min: 0 },
-    basePrice: { type: Number, required: true, min: 0 },
-    priceMultiplier: { type: Number, default: 1, min: 1 },
-    imageUrl: String,
-    features: [{ type: String }],
-    isActive: { type: Boolean, default: true },
-}, { timestamps: true });
-const Vehicle = mongoose_1.default.models.Vehicle || mongoose_1.default.model('Vehicle', vehicleSchema);
-exports.default = Vehicle;
+    title: {
+        type: String,
+        required: true,
+        trim: true,
+    },
+    message: {
+        type: String,
+        required: true,
+        trim: true,
+    },
+    link: {
+        type: String,
+        trim: true,
+    },
+    bookingId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'Booking',
+    },
+    read: {
+        type: Boolean,
+        default: false,
+    },
+}, {
+    timestamps: true,
+});
+notificationSchema.index({ userId: 1, createdAt: -1 });
+const Notification = mongoose_1.default.models.Notification || mongoose_1.default.model('Notification', notificationSchema);
+exports.default = Notification;

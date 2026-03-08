@@ -6,6 +6,7 @@ import { BOOKING_STATUS, TRIP_TYPES } from '../constants';
 import { calculatePrice, calculateDistance, estimateDuration } from '../services/pricing.service';
 import { validateServiceArea } from '../services/service-area.service';
 import { generateReceipt } from '../services/receipt.service';
+import { sendAdminBookingRequestNotification } from '../services/email.service';
 
 export const bookingRoutes = Router();
 
@@ -16,6 +17,11 @@ bookingRoutes.post('/bookings', async (req: Request, res: Response) => {
         const booking = await Booking.create({
             ...body,
             status: body.status || 'pending_payment',
+        });
+
+        // Send admin alert without blocking booking creation response.
+        void sendAdminBookingRequestNotification(booking).catch((error) => {
+            console.error('Failed to send admin booking request email:', error);
         });
 
         return res.status(201).json({ success: true, data: booking });

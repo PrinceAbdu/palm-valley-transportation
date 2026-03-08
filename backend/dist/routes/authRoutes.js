@@ -5,6 +5,8 @@ const express_1 = require("express");
 const zod_1 = require("zod");
 const User_1 = require("../models/User");
 const jwt_1 = require("../utils/jwt");
+const email_service_1 = require("../services/email.service");
+const env_1 = require("../config/env");
 exports.authRoutes = (0, express_1.Router)();
 const registerSchema = zod_1.z.object({
     email: zod_1.z.string().email(),
@@ -107,31 +109,75 @@ exports.authRoutes.post('/auth/login', async (req, res) => {
 // POST /api/auth/google
 exports.authRoutes.post('/auth/google', async (req, res) => {
     try {
-        const { idToken, email, name, picture } = req.body;
+        const { idToken } = req.body;
         if (!idToken) {
             return res.status(400).json({ success: false, error: 'ID token is required' });
         }
-        // Verify token with Google
-        const googleResponse = await fetch('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=' + idToken);
-        const tokenInfo = await googleResponse.json();
-        if (!tokenInfo.email) {
+        // Verify Google ID token.
+        const googleResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+        if (!googleResponse.ok) {
             return res.status(401).json({ success: false, error: 'Invalid Google token' });
         }
-        let user = await User_1.User.findOne({ email: email.toLowerCase() });
+        const tokenInfo = await googleResponse.json();
+        const tokenEmail = tokenInfo?.email;
+        const tokenSub = tokenInfo?.sub;
+        const tokenAud = tokenInfo?.aud;
+        const tokenGivenName = tokenInfo?.given_name;
+        const tokenFamilyName = tokenInfo?.family_name;
+        const tokenName = tokenInfo?.name;
+        const tokenPicture = tokenInfo?.picture;
+        const tokenEmailVerified = tokenInfo?.email_verified;
+        if (!tokenEmail || !tokenSub) {
+            return res.status(401).json({ success: false, error: 'Invalid Google token' });
+        }
+        if (env_1.env.GOOGLE_CLIENT_ID && tokenAud !== env_1.env.GOOGLE_CLIENT_ID) {
+            return res.status(401).json({ success: false, error: 'Google token audience mismatch' });
+        }
+        if (String(tokenEmailVerified).toLowerCase() !== 'true') {
+            return res.status(401).json({ success: false, error: 'Google email is not verified' });
+        }
+        const emailLower = String(tokenEmail).toLowerCase();
+        let user = await User_1.User.findOne({ email: emailLower });
         if (!user) {
-            const [firstName, ...lastNameParts] = name.split(' ');
+            const fullName = tokenName || '';
+            const [fallbackFirstName, ...lastNameParts] = fullName.split(' ');
+            const firstName = tokenGivenName || fallbackFirstName || 'Google';
             const lastName = lastNameParts.join(' ') || '';
             user = await User_1.User.create({
                 firstName,
                 lastName,
-                email: email.toLowerCase(),
+                email: emailLower,
+                phone: 'Not provided',
                 password: Math.random().toString(36).slice(-15),
                 role: 'rider',
                 isActive: true,
-                profilePicture: picture,
+                profilePicture: tokenPicture,
+                isEmailVerified: true,
                 oauthProvider: 'google',
-                oauthId: tokenInfo.sub,
+                oauthId: tokenSub,
             });
+        }
+        else {
+            let changed = false;
+            if (!user.oauthProvider) {
+                user.oauthProvider = 'google';
+                changed = true;
+            }
+            if (!user.oauthId) {
+                user.oauthId = tokenSub;
+                changed = true;
+            }
+            if (!user.profilePicture && tokenPicture) {
+                user.profilePicture = tokenPicture;
+                changed = true;
+            }
+            if (!user.isEmailVerified) {
+                user.isEmailVerified = true;
+                changed = true;
+            }
+            if (changed) {
+                await user.save();
+            }
         }
         if (!user.isActive) {
             return res.status(403).json({ success: false, error: 'Account is deactivated. Please contact support.' });
@@ -204,11 +250,13 @@ exports.authRoutes.post('/auth/forgot-password', async (req, res) => {
         }
         const resetToken = (0, jwt_1.generateResetToken)(user._id.toString());
         const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+        const emailSent = await (0, email_service_1.sendPasswordReset)(email, resetUrl);
         console.log(`Password reset link for ${email}: ${resetUrl}`);
         return res.json({
             success: true,
             message: 'If an account exists with this email, you will receive password reset instructions.',
-            devResetUrl: process.env.NODE_ENV === 'development' ? resetUrl : undefined,
+            devResetUrl: process.env.NODE_ENV === 'development' || !emailSent ? resetUrl : undefined,
+            emailSent,
         });
     }
     catch (error) {
