@@ -14,6 +14,7 @@ export interface IVehicle extends Document {
     priceMultiplier: number;
     imageUrl?: string;
     features: string[];
+    order: number;
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -45,6 +46,7 @@ const vehicleSchema = new Schema<IVehicle>(
         maxLuggage: { type: Number, required: true, min: 0 },
         basePrice: { type: Number, required: true, min: 0 },
         priceMultiplier: { type: Number, default: 1, min: 1 },
+        order: { type: Number, default: 0, min: 0 },
         imageUrl: String,
         features: [{ type: String }],
         isActive: { type: Boolean, default: true },

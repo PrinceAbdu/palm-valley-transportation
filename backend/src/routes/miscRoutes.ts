@@ -113,7 +113,9 @@ miscRoutes.get('/users/notification-settings', requireAuth, async (req: Request,
 // GET /api/vehicles
 miscRoutes.get('/vehicles', async (_req: Request, res: Response) => {
     try {
-        const vehicles = await Vehicle.find({ isActive: true }).lean();
+        const vehicles = await Vehicle.find({ isActive: true })
+            .sort({ order: 1, createdAt: -1 })
+            .lean();
         return res.json({ success: true, data: vehicles });
     } catch (error) {
         console.error('Error fetching vehicles:', error);

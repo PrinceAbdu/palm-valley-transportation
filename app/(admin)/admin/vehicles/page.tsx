@@ -13,6 +13,7 @@ const INITIAL_FORM = {
     name: '',
     description: '',
     type: 'sedan',
+    order: 0,
     registrationNumber: '',
     maxPassengers: 4,
     maxLuggage: 3,
@@ -106,6 +107,7 @@ export default function AdminVehiclesPage() {
             name: vehicle.name,
             description: vehicle.description || '',
             type: vehicle.type,
+            order: vehicle.order ?? 0,
             registrationNumber: vehicle.registrationNumber || '',
             maxPassengers: vehicle.maxPassengers,
             maxLuggage: vehicle.maxLuggage,
@@ -132,6 +134,7 @@ export default function AdminVehiclesPage() {
 
         const payload = {
             ...formData,
+            order: Number.isFinite(Number(formData.order)) ? Number(formData.order) : 0,
             features: formData.features.split(',').map(f => f.trim()).filter(Boolean),
         };
 
@@ -249,14 +252,12 @@ export default function AdminVehiclesPage() {
                                 value={formData.type}
                                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
-                                disabled={!!editingId}
                             >
                                 <option value="sedan">Sedan</option>
                                 <option value="suv">SUV</option>
                                 <option value="van">Van</option>
                                 <option value="luxury">Luxury</option>
                             </select>
-                            {editingId && <p className="text-xs text-gray-400 mt-1">Type cannot be changed</p>}
                         </div>
                     </div>
                     <Input
@@ -310,6 +311,17 @@ export default function AdminVehiclesPage() {
                     value={formData.maxLuggage}
                     onChange={(e) => setFormData({ ...formData, maxLuggage: parseInt(e.target.value) })}
                     required
+                />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                    label="Order Number"
+                    type="number"
+                    min="0"
+                    value={formData.order}
+                    onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value || '0', 10) })}
+                    placeholder="0"
                 />
             </div>
 
@@ -415,6 +427,7 @@ export default function AdminVehiclesPage() {
                                         <span>👥 {vehicle.maxPassengers} passengers</span>
                                         <span>🧳 {vehicle.maxLuggage} bags</span>
                                         <span className="font-semibold text-success-600">${vehicle.basePrice}</span>
+                                        <span className="text-gray-500">Order: {vehicle.order ?? 0}</span>
                                         {vehicle.registrationNumber && (
                                             <span className="text-gray-400">#{vehicle.registrationNumber}</span>
                                         )}

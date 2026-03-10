@@ -394,7 +394,7 @@ adminRoutes.delete('/admin/drivers/:id', async (req: Request, res: Response) => 
 // --- Admin Vehicles ---
 adminRoutes.get('/admin/vehicles', async (_req: Request, res: Response) => {
     try {
-        const vehicles = await Vehicle.find().sort({ createdAt: -1 }).lean();
+        const vehicles = await Vehicle.find().sort({ order: 1, createdAt: -1 }).lean();
         return res.json({ success: true, data: vehicles });
     } catch (error) {
         console.error('Admin vehicles error:', error);

@@ -8,6 +8,7 @@ interface Vehicle {
     _id: string;
     name: string;
     type: string;
+    order?: number;
     maxPassengers: number;
     maxLuggage: number;
     basePrice: number;
@@ -26,7 +27,10 @@ export default function FleetPreview() {
                 const res = await api('/api/vehicles');
                 const data = await res.json();
                 if (data.success) {
-                    setVehicles(data.data.slice(0, 3)); // Show max 3 on homepage
+                    const sorted = [...data.data].sort(
+                        (a: Vehicle, b: Vehicle) => (a.order ?? 0) - (b.order ?? 0)
+                    );
+                    setVehicles(sorted.slice(0, 3)); // Show max 3 on homepage
                 }
             } catch (error) {
                 console.error('Error fetching vehicles:', error);
@@ -75,7 +79,7 @@ export default function FleetPreview() {
                             )}
 
                             {/* Image */}
-                            <div className="bg-gradient-to-br from-gray-100 to-gray-200 h-48 flex items-center justify-center text-7xl">
+                            <div className="bg-gradient-to-br from-gray-100 to-gray-200 h-60 md:h-48 flex items-center justify-center text-7xl">
                                 {vehicle.imageUrl ? (
                                     <img src={vehicle.imageUrl} alt={vehicle.name} className="w-full h-full object-cover" />
                                 ) : (
