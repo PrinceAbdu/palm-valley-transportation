@@ -72,7 +72,7 @@ export default function FleetPreview() {
                             key={vehicle._id}
                             className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden hover:border-primary-500 transition group relative flex-shrink-0 w-[88%] sm:w-[72%] md:w-auto"
                         >
-                            {index === 1 && (
+                            {index === 0 && (
                                 <div className="absolute top-4 right-4 bg-secondary-500 text-white px-3 py-1 rounded-full text-sm font-semibold z-10">
                                     Most Popular
                                 </div>
