@@ -113,7 +113,7 @@ export default function Footer() {
                             </li>
                             <li>
                                 <a
-                                    href="mailto:palmvalleytransportation.com"
+                                    href="mailto:pvatransportation@gmail.com"
                                     className="flex items-center gap-3 text-gray-400 hover:text-white transition-colors group"
                                 >
                                     <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center group-hover:bg-primary-500/20 transition-colors">
@@ -121,7 +121,7 @@ export default function Footer() {
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-500">Email us</p>
-                                        <p className="font-medium text-white">palmvalleytransportation.com</p>
+                                        <p className="font-medium text-white">pvatransportation@gmail.com</p>
                                     </div>
                                 </a>
                             </li>
