@@ -10,7 +10,7 @@ exports.sendStatusUpdate = sendStatusUpdate;
 exports.sendPasswordReset = sendPasswordReset;
 exports.sendAdminBookingRequestNotification = sendAdminBookingRequestNotification;
 const nodemailer_1 = __importDefault(require("nodemailer"));
-const ADMIN_BOOKING_EMAIL = 'palmvalleytransportation@gmail.com';
+const ADMIN_BOOKING_EMAIL = 'alakashiabdul@gmail.com';
 function escapeHtml(value) {
     return value
         .replace(/&/g, '&amp;')
