@@ -6,7 +6,7 @@ interface EmailParams {
     html: string;
 }
 
-const ADMIN_BOOKING_EMAIL = 'alakashiabdul@gmail.com';
+const ADMIN_BOOKING_EMAIL = 'syedalikazmi0012@gmail.com';
 
 function escapeHtml(value: string): string {
     return value
@@ -408,7 +408,7 @@ export async function sendAdminBookingRequestNotification(booking: any): Promise
     const totalPrice = typeof booking?.totalPrice === 'number' ? `$${booking.totalPrice.toFixed(2)}` : 'Not quoted';
 
     return sendEmail({
-        to: ADMIN_BOOKING_EMAIL || 'alakashiabdul@gmail.com',
+        to: ADMIN_BOOKING_EMAIL || 'syedalikazmi0012@gmail.com',
         subject: `New Booking Request${booking?.bookingNumber ? ` - #${booking.bookingNumber}` : ''}`,
         html: `
             <div style="${emailHeaderStyles}">
