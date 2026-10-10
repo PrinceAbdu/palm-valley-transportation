@@ -421,6 +421,7 @@ export async function sendAdminBookingRequestNotification(booking: any): Promise
     const tripType = booking?.tripType ? String(booking.tripType).replace('_', ' ') : 'Not provided';
     const totalPrice = typeof booking?.totalPrice === 'number' ? `$${booking.totalPrice.toFixed(2)}` : 'Not quoted';
 
+    
     return sendEmail({
         to: ADMIN_BOOKING_EMAIL,
         subject: `New Booking Request${booking?.bookingNumber ? ` - #${booking.bookingNumber}` : ''}`,
