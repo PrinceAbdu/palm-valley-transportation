@@ -6,7 +6,7 @@ interface EmailParams {
     html: string;
 }
 
-const ADMIN_BOOKING_EMAIL = 'syedalikazmi0012@gmail.com';
+const ADMIN_BOOKING_EMAIL = 'palmvalleytransportation@gmail.com';
 
 function escapeHtml(value: string): string {
     return value
