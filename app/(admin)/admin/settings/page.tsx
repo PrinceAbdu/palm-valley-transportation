@@ -24,7 +24,7 @@ interface Settings {
 export default function SettingsPage() {
     const [settings, setSettings] = useState<Settings>({
         companyName: 'Palm Valley Transportation',
-        companyEmail: 'info@palmvalleytrans.com',
+        companyEmail: 'palmvalleytransportation@gmail.com',
         companyPhone: '(904) 555-0100',
         companyAddress: 'Jacksonville, Florida',
         taxRate: 7,
