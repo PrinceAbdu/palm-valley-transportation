@@ -21,11 +21,22 @@ exports.bookingRoutes.post('/bookings', async (req, res) => {
             ...body,
             status: body.status || 'pending_payment',
         });
-        // Send admin alert without blocking booking creation response.
-        void (0, email_service_1.sendAdminBookingRequestNotification)(booking).catch((error) => {
+        // Await on Vercel/serverless so the function is not frozen before SMTP finishes.
+        let adminEmailSent = false;
+        try {
+            adminEmailSent = await (0, email_service_1.sendAdminBookingRequestNotification)(booking);
+            if (!adminEmailSent) {
+                console.error('Admin booking email was not sent (SMTP skipped or failed)');
+            }
+        }
+        catch (error) {
             console.error('Failed to send admin booking request email:', error);
+        }
+        return res.status(201).json({
+            success: true,
+            data: booking,
+            adminEmailSent,
         });
-        return res.status(201).json({ success: true, data: booking });
     }
     catch (error) {
         console.error('Error creating booking:', error);

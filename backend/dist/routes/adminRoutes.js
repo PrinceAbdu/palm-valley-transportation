@@ -413,7 +413,7 @@ exports.adminRoutes.delete('/admin/drivers/:id', async (req, res) => {
 // --- Admin Vehicles ---
 exports.adminRoutes.get('/admin/vehicles', async (_req, res) => {
     try {
-        const vehicles = await Vehicle_1.default.find().sort({ createdAt: -1 }).lean();
+        const vehicles = await Vehicle_1.default.find().sort({ order: 1, createdAt: -1 }).lean();
         return res.json({ success: true, data: vehicles });
     }
     catch (error) {

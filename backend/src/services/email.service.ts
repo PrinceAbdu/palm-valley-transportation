@@ -18,13 +18,24 @@ function escapeHtml(value: string): string {
 }
 
 function createTransporter() {
+    const port = parseInt(process.env.SMTP_PORT || '587', 10);
+    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false,
+        port,
+        secure,
+        requireTLS: !secure,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASSWORD,
+        },
+        // Serverless (Vercel) needs bounded waits so the function doesn't hang forever.
+        connectionTimeout: 15_000,
+        greetingTimeout: 15_000,
+        socketTimeout: 20_000,
+        tls: {
+            minVersion: 'TLSv1.2',
         },
     });
 }
@@ -132,14 +143,15 @@ const badgeStyles = `
 `;
 
 export async function sendEmail(params: EmailParams): Promise<boolean> {
-    try {
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-            console.log('Email service not configured, skipping email send');
-            console.log(`Would send email to ${params.to}: ${params.subject}`);
-            return false;
-        }
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+        console.error('Email service not configured (missing SMTP_USER or SMTP_PASSWORD), skipping send');
+        console.error(`Would send email to ${params.to}: ${params.subject}`);
+        return false;
+    }
 
-        const transporter = createTransporter();
+    const transporter = createTransporter();
+    try {
+        console.log(`Attempting email send to ${params.to}: ${params.subject}`);
         await transporter.sendMail({
             from: process.env.SMTP_FROM || process.env.SMTP_USER,
             to: params.to,
@@ -152,6 +164,8 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
     } catch (error) {
         console.error('Error sending email:', error);
         return false;
+    } finally {
+        transporter.close();
     }
 }
 
@@ -408,8 +422,7 @@ export async function sendAdminBookingRequestNotification(booking: any): Promise
     const totalPrice = typeof booking?.totalPrice === 'number' ? `$${booking.totalPrice.toFixed(2)}` : 'Not quoted';
 
     return sendEmail({
-        to: ADMIN_BOOKING_EMAIL || 'syedalikazmi0012@gmail.com', 
-        
+        to: ADMIN_BOOKING_EMAIL,
         subject: `New Booking Request${booking?.bookingNumber ? ` - #${booking.bookingNumber}` : ''}`,
         html: `
             <div style="${emailHeaderStyles}">

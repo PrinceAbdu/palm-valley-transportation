@@ -20,13 +20,23 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 function createTransporter() {
+    const port = parseInt(process.env.SMTP_PORT || '587', 10);
+    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
     return nodemailer_1.default.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false,
+        port,
+        secure,
+        requireTLS: !secure,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASSWORD,
+        },
+        // Serverless (Vercel) needs bounded waits so the function doesn't hang forever.
+        connectionTimeout: 15_000,
+        greetingTimeout: 15_000,
+        socketTimeout: 20_000,
+        tls: {
+            minVersion: 'TLSv1.2',
         },
     });
 }
@@ -120,13 +130,14 @@ const badgeStyles = `
     margin: 3px;
 `;
 async function sendEmail(params) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+        console.error('Email service not configured (missing SMTP_USER or SMTP_PASSWORD), skipping send');
+        console.error(`Would send email to ${params.to}: ${params.subject}`);
+        return false;
+    }
+    const transporter = createTransporter();
     try {
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-            console.log('Email service not configured, skipping email send');
-            console.log(`Would send email to ${params.to}: ${params.subject}`);
-            return false;
-        }
-        const transporter = createTransporter();
+        console.log(`Attempting email send to ${params.to}: ${params.subject}`);
         await transporter.sendMail({
             from: process.env.SMTP_FROM || process.env.SMTP_USER,
             to: params.to,
@@ -139,6 +150,9 @@ async function sendEmail(params) {
     catch (error) {
         console.error('Error sending email:', error);
         return false;
+    }
+    finally {
+        transporter.close();
     }
 }
 async function sendBookingConfirmation(booking, userEmail) {

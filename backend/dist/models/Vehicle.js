@@ -59,6 +59,7 @@ const vehicleSchema = new mongoose_1.Schema({
     maxLuggage: { type: Number, required: true, min: 0 },
     basePrice: { type: Number, required: true, min: 0 },
     priceMultiplier: { type: Number, default: 1, min: 1 },
+    order: { type: Number, default: 0, min: 0 },
     imageUrl: String,
     features: [{ type: String }],
     isActive: { type: Boolean, default: true },

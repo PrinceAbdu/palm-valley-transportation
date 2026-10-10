@@ -146,7 +146,9 @@ exports.miscRoutes.get('/users/notification-settings', auth_1.requireAuth, async
 // GET /api/vehicles
 exports.miscRoutes.get('/vehicles', async (_req, res) => {
     try {
-        const vehicles = await Vehicle_1.default.find({ isActive: true }).lean();
+        const vehicles = await Vehicle_1.default.find({ isActive: true })
+            .sort({ order: 1, createdAt: -1 })
+            .lean();
         return res.json({ success: true, data: vehicles });
     }
     catch (error) {
