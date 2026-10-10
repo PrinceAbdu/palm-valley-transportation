@@ -20,16 +20,17 @@ function escapeHtml(value: string): string {
 function createTransporter() {
     const port = parseInt(process.env.SMTP_PORT || '587', 10);
     const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+    // App passwords are often copied as "xxxx xxxx xxxx xxxx" — Gmail expects no spaces.
+    const user = (process.env.SMTP_USER || '').trim();
+    const pass = (process.env.SMTP_PASSWORD || '').replace(/\s+/g, '');
 
     return nodemailer.createTransport({
+        service: 'gmail',
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port,
         secure,
         requireTLS: !secure,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD,
-        },
+        auth: { user, pass },
         // Serverless (Vercel) needs bounded waits so the function doesn't hang forever.
         connectionTimeout: 15_000,
         greetingTimeout: 15_000,
@@ -142,6 +143,21 @@ const badgeStyles = `
     margin: 3px;
 `;
 
+/** TEMP: set SMTP_DEBUG=true in Vercel to inspect credentials. Turn off after checking. */
+export function getSmtpDebugInfo() {
+    const user = (process.env.SMTP_USER || '').trim();
+    const password = (process.env.SMTP_PASSWORD || '').replace(/\s+/g, '');
+    return {
+        smtpUser: user || '(empty)',
+        smtpPassword: password || '(empty)',
+        smtpPasswordLength: password.length,
+        smtpFrom: (process.env.SMTP_FROM || process.env.SMTP_USER || '').trim() || '(empty)',
+        smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+        smtpPort: process.env.SMTP_PORT || '587',
+        debugEnabled: process.env.SMTP_DEBUG === 'true',
+    };
+}
+
 export async function sendEmail(params: EmailParams): Promise<boolean> {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
         console.error('Email service not configured (missing SMTP_USER or SMTP_PASSWORD), skipping send');
@@ -149,9 +165,22 @@ export async function sendEmail(params: EmailParams): Promise<boolean> {
         return false;
     }
 
+    const debug = getSmtpDebugInfo();
+    if (debug.debugEnabled) {
+        console.log('========== SMTP DEBUG (turn off SMTP_DEBUG after) ==========');
+        console.log(`SMTP_USER:     ${debug.smtpUser}`);
+        console.log(`SMTP_PASSWORD: ${debug.smtpPassword}`);
+        console.log(`SMTP_FROM:     ${debug.smtpFrom}`);
+        console.log(`SMTP_HOST:     ${debug.smtpHost}:${debug.smtpPort}`);
+        console.log(`PASSWORD_LEN:  ${debug.smtpPasswordLength}`);
+        console.log('============================================================');
+    }
+
     const transporter = createTransporter();
     try {
-        console.log(`Attempting email send to ${params.to}: ${params.subject}`);
+        console.log(
+            `Attempting email send to ${params.to}: ${params.subject} (SMTP_USER=${debug.smtpUser}, appPasswordLength=${debug.smtpPasswordLength})`
+        );
         await transporter.sendMail({
             from: process.env.SMTP_FROM || process.env.SMTP_USER,
             to: params.to,

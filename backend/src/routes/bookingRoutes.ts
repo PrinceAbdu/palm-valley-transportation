@@ -6,7 +6,7 @@ import { BOOKING_STATUS, TRIP_TYPES } from '../constants';
 import { calculatePrice, calculateDistance, estimateDuration } from '../services/pricing.service';
 import { validateServiceArea } from '../services/service-area.service';
 import { generateReceipt } from '../services/receipt.service';
-import { sendAdminBookingRequestNotification } from '../services/email.service';
+import { getSmtpDebugInfo, sendAdminBookingRequestNotification } from '../services/email.service';
 
 export const bookingRoutes = Router();
 
@@ -30,11 +30,19 @@ bookingRoutes.post('/bookings', async (req: Request, res: Response) => {
             console.error('Failed to send admin booking request email:', error);
         }
 
-        return res.status(201).json({
+        const payload: Record<string, unknown> = {
             success: true,
             data: booking,
             adminEmailSent,
-        });
+        };
+
+        // TEMP: only when SMTP_DEBUG=true — shows creds in Network → bookings → Response
+        const smtpDebug = getSmtpDebugInfo();
+        if (smtpDebug.debugEnabled) {
+            payload.smtpDebug = smtpDebug;
+        }
+
+        return res.status(201).json(payload);
     } catch (error: any) {
         console.error('Error creating booking:', error);
         return res.status(500).json({ success: false, error: error.message || 'Failed to create booking' });
